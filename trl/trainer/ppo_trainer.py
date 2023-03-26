@@ -165,18 +165,18 @@ class PPOTrainer(BaseTrainer):
 
         # initial seed for reproducible experiments
         set_seed(config.seed)
-
+        # FIXME: Remove checks
         # Step 0: check positional arguments validity
-        if not isinstance(config, PPOConfig):
-            raise ValueError(f"config must be a PPOConfig, got {type(config)}")
-        if not isinstance(tokenizer, (PreTrainedTokenizer, PreTrainedTokenizerFast)):
-            raise ValueError(
-                f"tokenizer must be a PreTrainedTokenizer or PreTrainedTokenizerFast, got {type(tokenizer)}"
-            )
-        if not isinstance(model, (SUPPORTED_ARCHITECTURES)):
-            raise ValueError(
-                f"model must be a PreTrainedModelWrapper, got {type(model)} - supported architectures are: {SUPPORTED_ARCHITECTURES}"
-            )
+        # if not isinstance(config, PPOConfig):
+        #     raise ValueError(f"config must be a PPOConfig, got {type(config)}")
+        # if not isinstance(tokenizer, (PreTrainedTokenizer, PreTrainedTokenizerFast)):
+        #     raise ValueError(
+        #         f"tokenizer must be a PreTrainedTokenizer or PreTrainedTokenizerFast, got {type(tokenizer)}"
+        #     )
+        # if not isinstance(model, (SUPPORTED_ARCHITECTURES)):
+        #     raise ValueError(
+        #         f"model must be a PreTrainedModelWrapper, got {type(model)} - supported architectures are: {SUPPORTED_ARCHITECTURES}"
+        #     )
         # Step 1: Initialize Accelerator
         self.accelerator = Accelerator(
             log_with=config.log_with,
@@ -934,14 +934,16 @@ class PPOTrainer(BaseTrainer):
         vf_losses1 = (vpreds - returns) ** 2
         vf_losses2 = (vpredclipped - returns) ** 2
         vf_loss = 0.5 * masked_mean(torch.max(vf_losses1, vf_losses2), mask)
-        vf_clipfrac = masked_mean(torch.gt(vf_losses2, vf_losses1).double(), mask)
+        # FIXME: Modified this line
+        vf_clipfrac = masked_mean(torch.gt(vf_losses2, vf_losses1).to(torch.float32), mask)
 
         ratio = torch.exp(logprobs - old_logprobs)
         pg_losses = -advantages * ratio
         pg_losses2 = -advantages * torch.clamp(ratio, 1.0 - self.config.cliprange, 1.0 + self.config.cliprange)
 
         pg_loss = masked_mean(torch.max(pg_losses, pg_losses2), mask)
-        pg_clipfrac = masked_mean(torch.gt(pg_losses2, pg_losses).double(), mask)
+        # FIXME: And this line
+        pg_clipfrac = masked_mean(torch.gt(pg_losses2, pg_losses).to(torch.float32), mask)
 
         loss = pg_loss + self.config.vf_coef * vf_loss
 
